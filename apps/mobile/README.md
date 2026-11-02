@@ -159,3 +159,16 @@ vp run eas:android:dev
 vp run eas:android:preview:dev
 vp run eas:android:preview
 ```
+
+## Self-hosted APNs builds
+
+Set `T3CODE_IOS_BUNDLE_ID` in the repository-root `.env.local` to an explicit app
+identifier owned by your paid Apple Developer team. Unlike the Personal Team
+option, this preserves push, widget, and share-extension capabilities. Provision
+the app and its derived extension identifiers under your team, with Push
+Notifications enabled for the app. Keep APNs signing keys on the environment
+server, never in Expo public configuration or the app bundle.
+
+See [self-hosted iOS push](../../docs/user/mobile-notifications.md#self-hosted-ios-push)
+for server setup and device registration. The App Store build cannot use another
+team's APNs credentials.

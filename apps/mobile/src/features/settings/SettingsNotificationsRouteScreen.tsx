@@ -1,4 +1,5 @@
 import * as Dialog from "../../components/ui/Dialog";
+import { SelfHostedPushSettings } from "./SelfHostedPushSettings";
 import {
   AuthRelayWriteScope,
   managedCapabilityDenial,
@@ -18,7 +19,6 @@ import { useRef, useState, useSyncExternalStore } from "react";
 import { Linking, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppText as Text } from "../../components/ui/AppText";
 import {
   isAtomCommandInterrupted,
   reportAtomCommandResult,
@@ -116,9 +116,7 @@ export function SettingsNotificationsRouteScreen() {
           contentInsetAdjustmentBehavior="automatic"
           contentContainerClassName="px-5 pt-4"
         >
-          <Text className="text-base text-foreground-muted">
-            Notifications require T3 Connect in this app build.
-          </Text>
+          <SelfHostedPushSettings />
         </ScrollView>
       </SettingsScreen>
     );
@@ -422,6 +420,7 @@ function ConfiguredSettingsNotificationsRouteScreen() {
           paddingBottom: Math.max(insets.bottom, 18) + 18,
         }}
       >
+        <SelfHostedPushSettings />
         <SettingsSection title="Agent activity">
           <SettingsSwitchRow
             icon="bell.badge"

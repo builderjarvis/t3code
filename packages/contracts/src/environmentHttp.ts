@@ -837,7 +837,38 @@ class EnvironmentWebhooksHttpApi extends HttpApiGroup.make("webhooks")
   .add(HttpApiEndpoint.patch("webhookPatch", WEBHOOK_PATH, webhookEndpoint))
   .add(HttpApiEndpoint.get("webhookGet", WEBHOOK_PATH, webhookEndpoint)) {}
 
+export const SelfHostedPushRegistration = Schema.Struct({
+  token: Schema.String.check(Schema.isPattern(/^[a-fA-F0-9]{32,512}$/)),
+  bundleId: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(255)),
+  environment: Schema.Literals(["sandbox", "production"]),
+});
+
+class EnvironmentPushHttpApi extends HttpApiGroup.make("push")
+  .add(
+    HttpApiEndpoint.get("status", "/api/push", {
+      headers: OptionalBearerHeaders,
+      success: Schema.Struct({ configured: Schema.Boolean, registered: Schema.Boolean }),
+      error: EnvironmentHttpCloudErrors,
+    }).middleware(EnvironmentAuthenticatedAuth),
+  )
+  .add(
+    HttpApiEndpoint.post("register", "/api/push", {
+      headers: OptionalBearerHeaders,
+      payload: SelfHostedPushRegistration,
+      success: Schema.Void,
+      error: EnvironmentHttpCloudErrors,
+    }).middleware(EnvironmentAuthenticatedAuth),
+  )
+  .add(
+    HttpApiEndpoint.delete("unregister", "/api/push", {
+      headers: OptionalBearerHeaders,
+      success: Schema.Void,
+      error: EnvironmentHttpCloudErrors,
+    }).middleware(EnvironmentAuthenticatedAuth),
+  ) {}
+
 export class EnvironmentHttpApi extends HttpApi.make("environment")
+  .add(EnvironmentPushHttpApi)
   .add(EnvironmentMetadataHttpApi)
   .add(EnvironmentAuthHttpApi)
   .add(EnvironmentMcpOAuthHttpApi)
