@@ -92,6 +92,7 @@ export interface Preferences {
   readonly pullRequestHideTestFiles?: boolean;
   readonly pullRequestMergeMethod?: PullRequestMergeMethod;
   readonly liveActivitiesEnabled?: boolean;
+  readonly selfHostedPushEnvironments?: readonly string[];
   readonly themeId?: MobileThemeId;
   readonly lightThemeId?: MobileThemeId;
   readonly darkThemeId?: MobileThemeId;
@@ -174,6 +175,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     pullRequestHideTestFiles?: boolean;
     pullRequestMergeMethod?: PullRequestMergeMethod;
     liveActivitiesEnabled?: boolean;
+    selfHostedPushEnvironments?: readonly string[];
     themeId?: MobileThemeId;
     lightThemeId?: MobileThemeId;
     darkThemeId?: MobileThemeId;
@@ -233,6 +235,11 @@ function sanitizePreferences(parsed: Preferences): Preferences {
 
   if (typeof parsed.liveActivitiesEnabled === "boolean") {
     preferences.liveActivitiesEnabled = parsed.liveActivitiesEnabled;
+  }
+  if (Array.isArray(parsed.selfHostedPushEnvironments)) {
+    preferences.selfHostedPushEnvironments = parsed.selfHostedPushEnvironments.filter(
+      (id): id is string => typeof id === "string",
+    );
   }
   if (
     typeof parsed.themeId === "string" &&

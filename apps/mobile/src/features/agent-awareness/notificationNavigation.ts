@@ -1,4 +1,5 @@
 import * as Notifications from "expo-notifications";
+import { installSelfHostedPushRefresh } from "./selfHostedPush";
 
 import { setAndroidThreadOnScreen } from "./androidNotifications";
 import { foregroundNotificationBehavior } from "./foregroundNotificationBehavior";
@@ -19,6 +20,7 @@ export function setAgentNotificationPathname(pathname: string): void {
  * notification's deep link through `navigate`.
  */
 export function installAgentNotificationNavigation(navigate: (href: string) => void): () => void {
+  const stopSelfHostedPush = installSelfHostedPushRefresh();
   const handledResponseIds = new Set<string>();
   Notifications.setNotificationHandler({
     handleNotification: (notification) =>
@@ -36,6 +38,7 @@ export function installAgentNotificationNavigation(navigate: (href: string) => v
   });
 
   return () => {
+    stopSelfHostedPush();
     subscription.remove();
     Notifications.setNotificationHandler(null);
   };
