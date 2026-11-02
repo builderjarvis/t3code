@@ -40,6 +40,7 @@ import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import { layerRealGit } from "./ProviderTurnStartService.testkit.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderAuthService from "../provider/ProviderAuthService.ts";
+import * as ProviderInstallLock from "../provider/ProviderInstallLock.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as ContextHandoffService from "./ContextHandoffService.ts";
 import { withInlineContext } from "./ContextHandoffDelivery.ts";
@@ -192,6 +193,7 @@ function startWithMissingWorktree(
         }),
         Layer.mock(RunExecutionService.RunExecutionServiceV2)({ startRootRun }),
         Layer.mock(RuntimePolicy.RuntimePolicyV2)({}),
+        Layer.mock(ProviderInstallLock.ProviderInstallLock)({ untilIdle: Effect.void }),
       ),
     ),
   );
@@ -957,6 +959,7 @@ function makeLocalCommandHarness(input: {
         Layer.mock(RuntimePolicy.RuntimePolicyV2)({
           resolve: resolveRuntimePolicy,
         }),
+        Layer.mock(ProviderInstallLock.ProviderInstallLock)({ untilIdle: Effect.void }),
       ),
     ),
   );
@@ -1759,3 +1762,51 @@ for (const previousMessages of [[], ["/compact", " /COMPACT "]]) {
       }),
   );
 }
+
+effectIt.effect("holds a starting run back while a provider install is in flight", () =>
+  Effect.gen(function* () {
+    const installDone = yield* Deferred.make<void>();
+    const reads: Array<string> = [];
+    const layer = ProviderTurnStart.layer.pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          Layer.mock(ContextHandoffService.ContextHandoffServiceV2)({}),
+          Layer.mock(EventSink.EventSinkV2)({}),
+          IdAllocator.layer,
+          layerWorktreeLocation(),
+          FileSystem.layerNoop({}),
+          Layer.mock(GitWorkflow.GitWorkflowService)({}),
+          Layer.mock(ProjectService.ProjectService)({}),
+          Layer.mock(ProjectionStore.ProjectionStoreV2)({
+            getThreadRecords: () => Effect.succeed({ thread: { worktreePath: null } } as never),
+            getTurnStartContext: () =>
+              Effect.sync(() => {
+                reads.push("context");
+                return { runs: [] } as never;
+              }),
+          }),
+          Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({}),
+          Layer.mock(ProviderAuthService.ProviderAuthService)({}),
+          Layer.mock(RunExecutionService.RunExecutionServiceV2)({}),
+          Layer.mock(RuntimePolicy.RuntimePolicyV2)({}),
+          Layer.mock(ProviderInstallLock.ProviderInstallLock)({
+            untilIdle: Deferred.await(installDone),
+          }),
+        ),
+      ),
+    );
+    const start = Effect.gen(function* () {
+      yield* (yield* ProviderTurnStart.ProviderTurnStartServiceV2).start({
+        threadId: ThreadId.make("thread_start_waits_for_install"),
+        runId: RunId.make("run_start_waits_for_install"),
+      });
+    }).pipe(Effect.provide(layer));
+    const fiber = yield* start.pipe(Effect.ignore, Effect.forkChild);
+    yield* Effect.yieldNow;
+    expect(reads).toEqual([]);
+
+    yield* Deferred.succeed(installDone, undefined);
+    yield* Fiber.join(fiber);
+    expect(reads).toEqual(["context"]);
+  }),
+);
