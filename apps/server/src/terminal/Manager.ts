@@ -224,6 +224,12 @@ export class TerminalManager extends Context.Service<
       readonly terminalId?: string;
     }) => Effect.Effect<void>;
 
+    /**
+     * Whether any terminal is starting or running a foreground command.
+     * Restarting the server would end those, so an update waits.
+     */
+    readonly hasBusyTerminals: Effect.Effect<boolean>;
+
     readonly subscribe: (
       listener: (event: TerminalEvent) => Effect.Effect<void>,
       registerCleanup?: (stop: () => void) => void,
@@ -2802,6 +2808,28 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
     ),
   );
 
+  const hasBusyTerminals = Effect.gen(function* () {
+    const sessions = [...(yield* readManagerState).sessions.values()];
+    if (sessions.some((session) => session.status === "starting")) return true;
+    const running = sessions.filter((session) => session.status === "running");
+    if (running.length === 0) return false;
+    // A cached idle result must not let a restart kill a command started since the last poll.
+    const { inspector } = yield* acquireSubprocessInspector(PROCESS_TABLE_QUERY_TIMEOUT);
+    if (Result.isFailure(inspector)) return true;
+    for (const session of running) {
+      if (
+        session.pid === null ||
+        (yield* inspector.success(session.pid).pipe(
+          Effect.map((result) => result.hasRunningSubprocess),
+          Effect.orElseSucceed(() => true),
+        ))
+      ) {
+        return true;
+      }
+    }
+    return false;
+  });
+
   let subprocessSnapshotFailureCount = 0;
   yield* Effect.forever(
     hasRunningSessions.pipe(
@@ -3499,6 +3527,7 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
     clear,
     close,
     closeIdle,
+    hasBusyTerminals,
     subscribe,
     subscribeMetadata,
   });

@@ -1279,6 +1279,10 @@ const runlessNativeSubagentNeedsRecovery = Effect.gen(function* () {
       (yield* store.getRecoveryThreadIds("runtime")).includes(threadId),
       status !== "completed",
     );
+    assert.equal(
+      (yield* store.getRecoveryThreadIds("active-work")).includes(threadId),
+      status !== "completed",
+    );
   }
 });
 
@@ -7324,6 +7328,7 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
       const project = { title: "Project" };
       const environmentId = EnvironmentId.make("environment:held-completion");
       const held = yield* store.getThreadShell(threadId);
+      assert.include(yield* store.getRecoveryThreadIds("active-work"), threadId);
       assert.equal(
         held && projectThreadAwarenessV2({ environmentId, project, thread: held })?.phase,
         "running",
@@ -7339,6 +7344,7 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
         payload: { ...providerThread, pendingBackgroundTasks: [], updatedAt: releasedAt },
       });
       const released = yield* store.getThreadShell(threadId);
+      assert.notInclude(yield* store.getRecoveryThreadIds("active-work"), threadId);
       const state =
         released && projectThreadAwarenessV2({ environmentId, project, thread: released });
       assert.equal(state?.phase, "completed");
